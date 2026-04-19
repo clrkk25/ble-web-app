@@ -52,6 +52,7 @@ function App() {
 
   const characteristicRef = useRef(null);
   const deviceRef = useRef(null);
+  const transmittingRef = useRef(false);  /* 用于闭包访问 */
 
   const maxDataPoints = 20;
 
@@ -146,16 +147,21 @@ function App() {
 
     if (text.includes('START')) {
       setIsTransmitting(true);
-      setStatus('正在传输数据');
+      transmittingRef.current = true;
+      setStatus('正在传输');
     } else if (text.includes('STOP')) {
       setIsTransmitting(false);
-      setStatus('已停止传输');
+      transmittingRef.current = false;
+      setStatus('已停止');
     } else {
-      const data = parseSensorData(text);
-      if (data) {
-        setTemperature(data.temperature);
-        setHumidity(data.humidity);
-        addDataPoint(data.temperature, data.humidity);
+      /* 只有在传输状态才处理温湿度数据 */
+      if (transmittingRef.current) {
+        const data = parseSensorData(text);
+        if (data) {
+          setTemperature(data.temperature);
+          setHumidity(data.humidity);
+          addDataPoint(data.temperature, data.humidity);
+        }
       }
     }
   };
@@ -179,13 +185,15 @@ function App() {
   };
 
   const handleStart = () => {
+    setStatus('正在启动传输...');
     sendCommand('1');
-    setIsTransmitting(true);
+    /* 不立即改变isTransmitting，等STM32回复START后再改变 */
   };
 
   const handleStop = () => {
+    setStatus('正在停止传输...');
     sendCommand('0');
-    setIsTransmitting(false);
+    /* 不立即改变isTransmitting，等STM32回复STOP后再改变 */
   };
 
   const connectBluetooth = async () => {
@@ -207,6 +215,7 @@ function App() {
       device.addEventListener('gattserverdisconnected', () => {
         setStatus('已断开');
         setIsTransmitting(false);
+        transmittingRef.current = false;
         characteristicRef.current = null;
         setTemperature('--');
         setHumidity('--');
@@ -223,7 +232,7 @@ function App() {
       characteristic.addEventListener('characteristicvaluechanged', handleDataReceived);
       await characteristic.startNotifications();
 
-      setStatus('已连接，等待数据');
+      setStatus('已连接，点击开始传输');
 
     } catch (error) {
       console.error('连接失败:', error);
