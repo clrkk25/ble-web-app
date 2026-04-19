@@ -23,6 +23,21 @@ ChartJS.register(
   Filler
 );
 
+/* 检测Web Bluetooth支持 */
+const isBluetoothSupported = () => {
+  return 'bluetooth' in navigator;
+};
+
+/* 检测设备类型 */
+const isMobile = () => {
+  return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+};
+
+/* 检测iOS */
+const isIOS = () => {
+  return /iPhone|iPad|iPod/i.test(navigator.userAgent);
+};
+
 function App() {
   const [status, setStatus] = useState('未连接');
   const [temperature, setTemperature] = useState('--');
@@ -31,11 +46,21 @@ function App() {
   const [temperatureData, setTemperatureData] = useState([]);
   const [humidityData, setHumidityData] = useState([]);
   const [timeLabels, setTimeLabels] = useState([]);
+  const [bluetoothSupported, setBluetoothSupported] = useState(true);
+  const [mobileDevice, setMobileDevice] = useState(false);
+  const [iosDevice, setIosDevice] = useState(false);
 
   const characteristicRef = useRef(null);
   const deviceRef = useRef(null);
 
-  const maxDataPoints = 30;
+  const maxDataPoints = 20;
+
+  /* 初始化检测 */
+  useEffect(() => {
+    setBluetoothSupported(isBluetoothSupported());
+    setMobileDevice(isMobile());
+    setIosDevice(isIOS());
+  }, []);
 
   const chartData = {
     labels: timeLabels,
@@ -64,16 +89,16 @@ function App() {
     maintainAspectRatio: false,
     plugins: {
       legend: {
-        labels: { color: '#eee' }
+        labels: { color: '#eee', font: { size: 12 } }
       }
     },
     scales: {
       x: {
-        ticks: { color: '#aaa' },
+        ticks: { color: '#aaa', font: { size: 10 }, maxTicksLimit: 6 },
         grid: { color: 'rgba(255,255,255,0.1)' }
       },
       y: {
-        ticks: { color: '#aaa' },
+        ticks: { color: '#aaa', font: { size: 10 } },
         grid: { color: 'rgba(255,255,255,0.1)' },
         min: 0,
         max: 100
@@ -149,6 +174,7 @@ function App() {
       console.log('发送命令:', cmd);
     } catch (error) {
       console.error('发送失败:', error);
+      alert('发送失败，设备可能已断开');
     }
   };
 
@@ -163,12 +189,15 @@ function App() {
   };
 
   const connectBluetooth = async () => {
+    if (!isBluetoothSupported()) {
+      alert('您的浏览器不支持Web Bluetooth API');
+      return;
+    }
+
     try {
       setStatus('正在连接...');
 
-      /* Web Bluetooth: 浏览器会弹出设备选择对话框 */
       const device = await navigator.bluetooth.requestDevice({
-        /* 接受所有设备，让用户在浏览器弹窗中选择 */
         acceptAllDevices: true,
         optionalServices: ['0000ffe0-0000-1000-8000-00805f9b34fb']
       });
@@ -179,6 +208,8 @@ function App() {
         setStatus('已断开');
         setIsTransmitting(false);
         characteristicRef.current = null;
+        setTemperature('--');
+        setHumidity('--');
       });
 
       const server = await device.gatt.connect();
@@ -196,7 +227,13 @@ function App() {
 
     } catch (error) {
       console.error('连接失败:', error);
-      setStatus('连接失败: ' + error.message);
+      if (error.name === 'NotFoundError') {
+        setStatus('未找到设备');
+      } else if (error.name === 'SecurityError') {
+        setStatus('权限被拒绝');
+      } else {
+        setStatus('连接失败');
+      }
     }
   };
 
@@ -205,6 +242,8 @@ function App() {
       await deviceRef.current.gatt.disconnect();
       setStatus('已断开');
       setIsTransmitting(false);
+      setTemperature('--');
+      setHumidity('--');
     }
   };
 
@@ -216,16 +255,73 @@ function App() {
     };
   }, []);
 
+  /* 不支持Web Bluetooth时显示提示 */
+  if (!bluetoothSupported) {
+    return (
+      <div style={{
+        maxWidth: '400px',
+        margin: '0 auto',
+        padding: '20px',
+        textAlign: 'center'
+      }}>
+        <h1 style={{ color: '#ff6b6b', marginBottom: '20px' }}>⚠️ 浏览器不支持</h1>
+        <div style={{
+          backgroundColor: '#16213e',
+          borderRadius: '10px',
+          padding: '20px',
+          marginBottom: '20px'
+        }}>
+          <p style={{ marginBottom: '15px', fontSize: '16px' }}>
+            您的浏览器不支持 <strong>Web Bluetooth API</strong>
+          </p>
+          {iosDevice ? (
+            <div>
+              <p style={{ color: '#ff6b6b', marginBottom: '10px' }}>
+                iOS Safari 完全不支持此功能
+              </p>
+              <p style={{ color: '#aaa', fontSize: '14px' }}>
+                请使用 Android Chrome 浏览器
+              </p>
+            </div>
+          ) : (
+            <div>
+              <p style={{ marginBottom: '10px' }}>请使用以下浏览器：</p>
+              <ul style={{ color: '#4ecdc4', textAlign: 'left', paddingLeft: '20px' }}>
+                <li>Chrome 70+ (Android/Windows/Mac)</li>
+                <li>Edge 79+ (Windows/Mac)</li>
+                <li>Opera 57+</li>
+              </ul>
+            </div>
+          )}
+        </div>
+        <div style={{
+          backgroundColor: '#1a1a2e',
+          borderRadius: '10px',
+          padding: '15px'
+        }}>
+          <p style={{ color: '#aaa', fontSize: '14px' }}>
+            当前设备: {mobileDevice ? '移动端' : 'PC端'}
+          </p>
+          <p style={{ color: '#aaa', fontSize: '14px' }}>
+            浏览器: {navigator.userAgent.split(' ').slice(-1)[0].split('/')[0]}
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  /* 正常界面 */
   return (
     <div style={{
-      maxWidth: '800px',
+      maxWidth: mobileDevice ? '100%' : '800px',
       margin: '0 auto',
-      padding: '20px'
+      padding: mobileDevice ? '15px' : '20px'
     }}>
       <h1 style={{
         textAlign: 'center',
-        marginBottom: '30px',
-        color: '#fff'
+        marginBottom: mobileDevice ? '15px' : '30px',
+        color: '#fff',
+        fontSize: mobileDevice ? '20px' : '28px'
       }}>
         BLE温湿度监控
       </h1>
@@ -233,21 +329,23 @@ function App() {
       <div style={{
         backgroundColor: '#16213e',
         borderRadius: '15px',
-        padding: '20px',
+        padding: mobileDevice ? '15px' : '20px',
         marginBottom: '20px'
       }}>
         <div style={{
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
-          marginBottom: '20px'
+          marginBottom: '20px',
+          flexWrap: 'wrap',
+          gap: '10px'
         }}>
           <div>
             <span style={{
-              padding: '8px 16px',
+              padding: '8px 12px',
               borderRadius: '5px',
               backgroundColor: status.includes('已连接') ? '#4ecdc4' : '#ff6b6b',
-              fontSize: '14px'
+              fontSize: mobileDevice ? '12px' : '14px'
             }}>
               {status}
             </span>
@@ -257,26 +355,28 @@ function App() {
               <button
                 onClick={disconnectBluetooth}
                 style={{
-                  padding: '10px 20px',
+                  padding: mobileDevice ? '12px 16px' : '10px 20px',
                   borderRadius: '5px',
                   border: 'none',
                   backgroundColor: '#ff6b6b',
                   color: '#fff',
-                  cursor: 'pointer'
+                  cursor: 'pointer',
+                  fontSize: mobileDevice ? '14px' : '16px'
                 }}
               >
-                断开连接
+                断开
               </button>
             ) : (
               <button
                 onClick={connectBluetooth}
                 style={{
-                  padding: '10px 20px',
+                  padding: mobileDevice ? '12px 16px' : '10px 20px',
                   borderRadius: '5px',
                   border: 'none',
                   backgroundColor: '#4ecdc4',
                   color: '#fff',
-                  cursor: 'pointer'
+                  cursor: 'pointer',
+                  fontSize: mobileDevice ? '14px' : '16px'
                 }}
               >
                 连接蓝牙
@@ -288,18 +388,19 @@ function App() {
         <div style={{
           display: 'flex',
           justifyContent: 'space-around',
-          marginBottom: '20px'
+          marginBottom: '20px',
+          gap: '10px'
         }}>
           <div style={{
             textAlign: 'center',
-            padding: '20px',
+            padding: mobileDevice ? '15px' : '20px',
             backgroundColor: '#1a1a2e',
             borderRadius: '10px',
-            width: '45%'
+            width: mobileDevice ? '48%' : '45%'
           }}>
-            <div style={{ fontSize: '16px', color: '#aaa', marginBottom: '10px' }}>温度</div>
+            <div style={{ fontSize: '14px', color: '#aaa', marginBottom: '10px' }}>温度</div>
             <div style={{
-              fontSize: '48px',
+              fontSize: mobileDevice ? '36px' : '48px',
               fontWeight: 'bold',
               color: '#ff6b6b'
             }}>
@@ -308,14 +409,14 @@ function App() {
           </div>
           <div style={{
             textAlign: 'center',
-            padding: '20px',
+            padding: mobileDevice ? '15px' : '20px',
             backgroundColor: '#1a1a2e',
             borderRadius: '10px',
-            width: '45%'
+            width: mobileDevice ? '48%' : '45%'
           }}>
-            <div style={{ fontSize: '16px', color: '#aaa', marginBottom: '10px' }}>湿度</div>
+            <div style={{ fontSize: '14px', color: '#aaa', marginBottom: '10px' }}>湿度</div>
             <div style={{
-              fontSize: '48px',
+              fontSize: mobileDevice ? '36px' : '48px',
               fontWeight: 'bold',
               color: '#4ecdc4'
             }}>
@@ -327,19 +428,19 @@ function App() {
         <div style={{
           display: 'flex',
           justifyContent: 'center',
-          gap: '20px'
+          gap: mobileDevice ? '15px' : '20px'
         }}>
           <button
             onClick={handleStart}
             disabled={!status.includes('已连接') || isTransmitting}
             style={{
-              padding: '15px 30px',
+              padding: mobileDevice ? '12px 24px' : '15px 30px',
               borderRadius: '5px',
               border: 'none',
               backgroundColor: isTransmitting ? '#666' : '#ff6b6b',
               color: '#fff',
               cursor: isTransmitting ? 'not-allowed' : 'pointer',
-              fontSize: '16px'
+              fontSize: mobileDevice ? '14px' : '16px'
             }}
           >
             开始传输
@@ -348,13 +449,13 @@ function App() {
             onClick={handleStop}
             disabled={!status.includes('已连接') || !isTransmitting}
             style={{
-              padding: '15px 30px',
+              padding: mobileDevice ? '12px 24px' : '15px 30px',
               borderRadius: '5px',
               border: 'none',
               backgroundColor: !isTransmitting ? '#666' : '#4ecdc4',
               color: '#fff',
               cursor: !isTransmitting ? 'not-allowed' : 'pointer',
-              fontSize: '16px'
+              fontSize: mobileDevice ? '14px' : '16px'
             }}
           >
             停止传输
@@ -365,10 +466,12 @@ function App() {
       <div style={{
         backgroundColor: '#16213e',
         borderRadius: '15px',
-        padding: '20px',
-        height: '300px'
+        padding: mobileDevice ? '15px' : '20px',
+        height: mobileDevice ? '200px' : '300px'
       }}>
-        <h3 style={{ marginBottom: '15px', color: '#eee' }}>实时曲线</h3>
+        <h3 style={{ marginBottom: '15px', color: '#eee', fontSize: mobileDevice ? '14px' : '18px' }}>
+          实时曲线
+        </h3>
         <Line data={chartData} options={chartOptions} />
       </div>
 
@@ -378,8 +481,15 @@ function App() {
         color: '#666',
         fontSize: '12px'
       }}>
-        <p>注意: Web Bluetooth API 需要Chrome浏览器</p>
-        <p>手机需使用Android Chrome，iOS Safari不支持</p>
+        <p>
+          {mobileDevice ? '移动端' : 'PC端'} |
+          {bluetoothSupported ? '✓ 支持BLE' : '✗ 不支持BLE'}
+        </p>
+        {mobileDevice && !iosDevice && (
+          <p style={{ color: '#4ecdc4' }}>
+            请使用Chrome浏览器并开启蓝牙权限
+          </p>
+        )}
       </div>
     </div>
   );

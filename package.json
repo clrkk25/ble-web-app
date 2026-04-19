@@ -2,9 +2,12 @@
   "name": "ble-temperature-monitor",
   "version": "1.0.0",
   "description": "Web Bluetooth温湿度监控",
+  "homepage": "https://clrkk25.github.io/ble-web-app",
   "scripts": {
     "start": "react-scripts start",
-    "build": "react-scripts build"
+    "build": "react-scripts build",
+    "predeploy": "npm run build",
+    "deploy": "gh-pages -d build"
   },
   "dependencies": {
     "react": "^18.2.0",
@@ -12,6 +15,9 @@
     "react-scripts": "5.0.1",
     "chart.js": "^4.4.0",
     "react-chartjs-2": "^5.2.0"
+  },
+  "devDependencies": {
+    "gh-pages": "^6.0.0"
   },
   "browserslist": {
     "production": [
