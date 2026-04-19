@@ -40,6 +40,7 @@ const isIOS = () => {
 
 function App() {
   const [status, setStatus] = useState('未连接');
+  const [connected, setConnected] = useState(false);  /* 蓝牙连接状态 */
   const [temperature, setTemperature] = useState('--');
   const [humidity, setHumidity] = useState('--');
   const [isTransmitting, setIsTransmitting] = useState(false);
@@ -214,6 +215,7 @@ function App() {
 
       device.addEventListener('gattserverdisconnected', () => {
         setStatus('已断开');
+        setConnected(false);
         setIsTransmitting(false);
         transmittingRef.current = false;
         characteristicRef.current = null;
@@ -223,6 +225,7 @@ function App() {
 
       const server = await device.gatt.connect();
       setStatus('已连接');
+      setConnected(true);
 
       const service = await server.getPrimaryService('0000ffe0-0000-1000-8000-00805f9b34fb');
       const characteristic = await service.getCharacteristic('0000ffe1-0000-1000-8000-00805f9b34fb');
@@ -250,6 +253,7 @@ function App() {
     if (deviceRef.current && deviceRef.current.gatt.connected) {
       await deviceRef.current.gatt.disconnect();
       setStatus('已断开');
+      setConnected(false);
       setIsTransmitting(false);
       setTemperature('--');
       setHumidity('--');
@@ -441,7 +445,7 @@ function App() {
         }}>
           <button
             onClick={handleStart}
-            disabled={!status.includes('已连接') || isTransmitting}
+            disabled={!connected || isTransmitting}
             style={{
               padding: mobileDevice ? '12px 24px' : '15px 30px',
               borderRadius: '5px',
@@ -456,7 +460,7 @@ function App() {
           </button>
           <button
             onClick={handleStop}
-            disabled={!status.includes('已连接') || !isTransmitting}
+            disabled={!connected || !isTransmitting}
             style={{
               padding: mobileDevice ? '12px 24px' : '15px 30px',
               borderRadius: '5px',
