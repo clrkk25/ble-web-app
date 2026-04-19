@@ -1,10 +1,10 @@
 {
   "files": {
-    "main.js": "/ble-web-app/static/js/main.615b6e23.js",
+    "main.js": "/ble-web-app/static/js/main.b99df389.js",
     "index.html": "/ble-web-app/index.html",
-    "main.615b6e23.js.map": "/ble-web-app/static/js/main.615b6e23.js.map"
+    "main.b99df389.js.map": "/ble-web-app/static/js/main.b99df389.js.map"
   },
   "entrypoints": [
-    "static/js/main.615b6e23.js"
+    "static/js/main.b99df389.js"
   ]
 }
