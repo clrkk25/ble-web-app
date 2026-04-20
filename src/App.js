@@ -190,8 +190,10 @@ function App() {
     setStatus('正在启动传输...');
     /* 先发送频率设置 */
     await sendCommand(`F:${frequency}`);
+    /* 等待100ms确保命令分开 */
+    await new Promise(resolve => setTimeout(resolve, 100));
     /* 再发送开始命令 */
-    sendCommand('1');
+    await sendCommand('1');
   };
 
   const handleStop = () => {
