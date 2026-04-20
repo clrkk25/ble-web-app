@@ -40,10 +40,11 @@ const isIOS = () => {
 
 function App() {
   const [status, setStatus] = useState('未连接');
-  const [connected, setConnected] = useState(false);  /* 蓝牙连接状态 */
+  const [connected, setConnected] = useState(false);
   const [temperature, setTemperature] = useState('--');
   const [humidity, setHumidity] = useState('--');
   const [isTransmitting, setIsTransmitting] = useState(false);
+  const [frequency, setFrequency] = useState(2000);  /* 默认2秒 */
   const [temperatureData, setTemperatureData] = useState([]);
   const [humidityData, setHumidityData] = useState([]);
   const [timeLabels, setTimeLabels] = useState([]);
@@ -185,16 +186,26 @@ function App() {
     }
   };
 
-  const handleStart = () => {
+  const handleStart = async () => {
     setStatus('正在启动传输...');
+    /* 先发送频率设置 */
+    await sendCommand(`F:${frequency}`);
+    /* 再发送开始命令 */
     sendCommand('1');
-    /* 不立即改变isTransmitting，等STM32回复START后再改变 */
   };
 
   const handleStop = () => {
     setStatus('正在停止传输...');
     sendCommand('0');
-    /* 不立即改变isTransmitting，等STM32回复STOP后再改变 */
+  };
+
+  const handleFrequencyChange = async (e) => {
+    const newFreq = parseInt(e.target.value);
+    setFrequency(newFreq);
+    /* 如果已连接，立即发送频率设置 */
+    if (connected) {
+      await sendCommand(`F:${newFreq}`);
+    }
   };
 
   const connectBluetooth = async () => {
@@ -396,6 +407,37 @@ function App() {
               </button>
             )}
           </div>
+        </div>
+
+        {/* 频率选择 */}
+        <div style={{
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          marginBottom: '20px',
+          gap: '15px'
+        }}>
+          <span style={{ color: '#aaa', fontSize: mobileDevice ? '14px' : '16px' }}>
+            传输频率:
+          </span>
+          <select
+            value={frequency}
+            onChange={handleFrequencyChange}
+            disabled={!connected}
+            style={{
+              padding: '8px 16px',
+              borderRadius: '5px',
+              border: 'none',
+              backgroundColor: connected ? '#1a1a2e' : '#666',
+              color: '#fff',
+              fontSize: mobileDevice ? '14px' : '16px',
+              cursor: connected ? 'pointer' : 'not-allowed'
+            }}
+          >
+            <option value={500}>0.5秒</option>
+            <option value={1000}>1秒</option>
+            <option value={2000}>2秒</option>
+          </select>
         </div>
 
         <div style={{
