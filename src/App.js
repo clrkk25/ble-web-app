@@ -44,7 +44,7 @@ function App() {
   const [temperature, setTemperature] = useState('--');
   const [humidity, setHumidity] = useState('--');
   const [isTransmitting, setIsTransmitting] = useState(false);
-  const [frequency, setFrequency] = useState(2000);  /* 默认2秒 */
+  const [frequency, setFrequency] = useState(1000);  /* 默认1秒 */
   const [temperatureData, setTemperatureData] = useState([]);
   const [humidityData, setHumidityData] = useState([]);
   const [timeLabels, setTimeLabels] = useState([]);
